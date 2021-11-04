@@ -1,83 +1,33 @@
 import express from "express";
 import NodeCache from "node-cache";
-import fs from "fs";
+import { ethers } from "ethers";
+import router from "./routes/nftRoutes";
 
-const cache = new NodeCache({
+//Contract's ABI
+import PunksJSON from "./json/Punks.json";
+
+const app = express();
+const port = process.env.PORT || 3001;
+const networkURL =
+  process.env.NETWORK_URL ||
+  "https://rinkeby.infura.io/v3/74f98561ad324c25b84e97cce1fc119d";
+
+const provider = ethers.getDefaultProvider(networkURL);
+
+export const punksContract = new ethers.Contract(
+  "0x1AE48b92061104900118070504d3441F0ba06A99",
+  PunksJSON.abi,
+  provider
+);
+
+export const cache = new NodeCache({
   stdTTL: 300,
   checkperiod: 500,
 });
 
-const app = express();
-const port = process.env.PORT || 3001;
+app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("Welcome to my server!");
-});
-
-app.get("/token/:tokenId", (req, res) => {
-  const tokenId = parseInt(req.params.tokenId);
-  console.log("url:", req.protocol + "://" + req.get("host") + req.originalUrl);
-
-  if (isNaN(tokenId)) {
-    res.sendStatus(404);
-    return;
-  }
-
-  if (tokenId > 100) {
-    res.sendStatus(404);
-    return;
-  }
-  try {
-    const tokenData = {
-      name: `Test Paint Token #${tokenId}`,
-      token_id: `${tokenId}`,
-      description: "Paint Generated NFT",
-      image: `${req.protocol}://${req.get("host")}/images${req.originalUrl}`,
-      attributes: [
-        {
-          trait_type: "Coolness",
-          value: "Very",
-        },
-      ],
-    };
-
-    res.setHeader("Content-Type", "application/json");
-
-    cache.set(tokenId, tokenData);
-    res.json(tokenData);
-  } catch {
-    res.sendStatus(404);
-  }
-});
-
-app.get("/images/token/:tokenId", (req, res) => {
-  const tokenId = parseInt(req.params.tokenId);
-
-  if (isNaN(tokenId)) {
-    res.sendStatus(404);
-    return;
-  }
-
-  if (tokenId > 100) {
-    res.sendStatus(404);
-    return;
-  }
-
-  let img = __dirname + "/images/nft.png";
-  fs.access(img, fs.constants.F_OK, (err) => {
-    console.log(`${img} ${err ? "does not exist" : "exists"}`);
-  });
-
-  fs.readFile(img, (err, content) => {
-    if (err) {
-      res.setHeader("Content-Type", "text/html");
-      res.send("Error fetching an image");
-    } else {
-      res.setHeader("Content-Type", "image/png");
-      res.send(content);
-    }
-  });
-});
+app.use("", router);
 
 app.listen(port, () => {
   console.log(`Listening to the port ${port}`);
